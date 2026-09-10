@@ -9,3 +9,4 @@ deployment:
     - /bin/cp tools.html $DEPLOYPATH
     - /bin/cp admin.html $DEPLOYPATH
     - /bin/cp style.css $DEPLOYPATH
+    - /bin/cp .htaccess $DEPLOYPATH
