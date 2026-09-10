@@ -11,6 +11,8 @@ deployment:
     - /bin/cp style.css $DEPLOYPATH
     - /bin/cp .htaccess $DEPLOYPATH
     - /bin/cp data-search.html $DEPLOYPATH
+    - /bin/cp data-search.php $DEPLOYPATH
+    - /bin/cp api-config.php.example $DEPLOYPATH
     - /bin/cp username-intel.html $DEPLOYPATH
     - /bin/cp domain-lookup.html $DEPLOYPATH
     - /bin/cp email-check.html $DEPLOYPATH
