@@ -1,0 +1,5 @@
+# GW-PROJECT web server MIME configuration
+AddType text/css .css
+AddType text/javascript .js
+AddType application/javascript .mjs
+AddDefaultCharset UTF-8
