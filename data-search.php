@@ -9,7 +9,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// Recommended cPanel location: /home/gwpe7134/api-config.php
 $configFile = dirname(__DIR__) . '/api-config.php';
 if (!is_file($configFile)) {
     http_response_code(503);
@@ -19,10 +18,9 @@ if (!is_file($configFile)) {
 
 $config = require $configFile;
 $token = trim((string)($config['token'] ?? ''));
-$endpoint = (string)($config['endpoint'] ?? 'https://leakosintapi.com/');
+$endpoint = trim((string)($config['endpoint'] ?? 'https://leakosintapi.com/'));
 $defaultLimit = (int)($config['limit'] ?? 100);
 $lang = (string)($config['lang'] ?? 'en');
-$type = (string)($config['type'] ?? 'json');
 
 if ($token === '' || $token === 'PASTE_YOUR_API_TOKEN_HERE') {
     http_response_code(503);
@@ -47,18 +45,18 @@ if (mb_strlen($query) > 500) {
     exit;
 }
 
+// Matches the documented API request: token + request, with optional limit/lang.
 $payload = [
     'token' => $token,
     'request' => $query,
     'limit' => $limit,
     'lang' => $lang,
-    'type' => $type,
 ];
 
 $ch = curl_init($endpoint);
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
-    CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+    CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
     CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json'],
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_CONNECTTIMEOUT => 10,
@@ -71,20 +69,21 @@ curl_close($ch);
 
 if ($response === false || $curlError !== '') {
     http_response_code(502);
-    echo json_encode(['ok'=>false,'error'=>'Gagal menghubungi API upstream.']);
+    echo json_encode(['ok'=>false,'error'=>'Gagal menghubungi API upstream.','detail'=>$curlError], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 $data = json_decode($response, true);
 if (!is_array($data)) {
     http_response_code(502);
-    echo json_encode(['ok'=>false,'error'=>'Respons API tidak valid.']);
+    echo json_encode(['ok'=>false,'error'=>'Respons API tidak valid.','http_status'=>$status], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 if ($status >= 400 || isset($data['Error code'])) {
+    $apiError = (string)($data['Error code'] ?? $data['error'] ?? $data['message'] ?? 'API mengembalikan error.');
     http_response_code($status >= 400 ? $status : 502);
-    echo json_encode(['ok'=>false,'error'=>(string)($data['Error code'] ?? 'API mengembalikan error.')], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['ok'=>false,'error'=>$apiError,'http_status'=>$status], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
