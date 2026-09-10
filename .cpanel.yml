@@ -10,3 +10,9 @@ deployment:
     - /bin/cp admin.html $DEPLOYPATH
     - /bin/cp style.css $DEPLOYPATH
     - /bin/cp .htaccess $DEPLOYPATH
+    - /bin/cp data-search.html $DEPLOYPATH
+    - /bin/cp username-intel.html $DEPLOYPATH
+    - /bin/cp domain-lookup.html $DEPLOYPATH
+    - /bin/cp email-check.html $DEPLOYPATH
+    - /bin/cp phone-check.html $DEPLOYPATH
+    - /bin/cp report.html $DEPLOYPATH
