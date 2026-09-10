@@ -3,17 +3,19 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['ok'=>false,'error'=>'Method not allowed']);
+function fail_response(int $status, string $error, array $extra = []): void {
+    http_response_code($status);
+    echo json_encode(array_merge(['ok' => false, 'error' => $error], $extra), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    fail_response(405, 'Method not allowed');
 }
 
 $configFile = dirname(__DIR__) . '/api-config.php';
 if (!is_file($configFile)) {
-    http_response_code(503);
-    echo json_encode(['ok'=>false,'error'=>'API belum dikonfigurasi. Buat /home/gwpe7134/api-config.php di cPanel.']);
-    exit;
+    fail_response(503, 'API belum dikonfigurasi. Buat /home/gwpe7134/api-config.php di cPanel.');
 }
 
 $config = require $configFile;
@@ -23,26 +25,24 @@ $defaultLimit = (int)($config['limit'] ?? 100);
 $lang = (string)($config['lang'] ?? 'en');
 
 if ($token === '' || $token === 'PASTE_YOUR_API_TOKEN_HERE') {
-    http_response_code(503);
-    echo json_encode(['ok'=>false,'error'=>'API token belum diisi di /home/gwpe7134/api-config.php.']);
-    exit;
+    fail_response(503, 'API token belum diisi di /home/gwpe7134/api-config.php.');
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
+if (!is_array($input)) {
+    fail_response(400, 'Request browser bukan JSON yang valid.');
+}
+
 $query = trim((string)($input['request'] ?? ''));
 $limit = (int)($input['limit'] ?? $defaultLimit);
 
 if ($query === '') {
-    http_response_code(400);
-    echo json_encode(['ok'=>false,'error'=>'Query kosong.']);
-    exit;
+    fail_response(400, 'Query kosong.');
 }
 
 $limit = max(100, min(10000, $limit));
 if (mb_strlen($query) > 500) {
-    http_response_code(400);
-    echo json_encode(['ok'=>false,'error'=>'Query terlalu panjang.']);
-    exit;
+    fail_response(400, 'Query terlalu panjang.');
 }
 
 // Matches the documented API request: token + request, with optional limit/lang.
@@ -53,10 +53,15 @@ $payload = [
     'lang' => $lang,
 ];
 
+$jsonPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($jsonPayload === false) {
+    fail_response(500, 'Gagal membuat JSON request API.');
+}
+
 $ch = curl_init($endpoint);
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
-    CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    CURLOPT_POSTFIELDS => $jsonPayload,
     CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json'],
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_CONNECTTIMEOUT => 10,
@@ -65,26 +70,38 @@ curl_setopt_array($ch, [
 $response = curl_exec($ch);
 $curlError = curl_error($ch);
 $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$contentType = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
 curl_close($ch);
 
 if ($response === false || $curlError !== '') {
-    http_response_code(502);
-    echo json_encode(['ok'=>false,'error'=>'Gagal menghubungi API upstream.','detail'=>$curlError], JSON_UNESCAPED_UNICODE);
-    exit;
+    fail_response(502, 'Gagal menghubungi API upstream.', ['detail' => $curlError]);
 }
 
 $data = json_decode($response, true);
 if (!is_array($data)) {
-    http_response_code(502);
-    echo json_encode(['ok'=>false,'error'=>'Respons API tidak valid.','http_status'=>$status], JSON_UNESCAPED_UNICODE);
-    exit;
+    fail_response(502, 'Respons API bukan JSON yang valid.', [
+        'http_status' => $status,
+        'content_type' => $contentType,
+    ]);
 }
 
-if ($status >= 400 || isset($data['Error code'])) {
-    $apiError = (string)($data['Error code'] ?? $data['error'] ?? $data['message'] ?? 'API mengembalikan error.');
-    http_response_code($status >= 400 ? $status : 502);
-    echo json_encode(['ok'=>false,'error'=>$apiError,'http_status'=>$status], JSON_UNESCAPED_UNICODE);
-    exit;
+// The documentation uses the exact key "Error code". Also accept common
+// variants so the browser gets a useful diagnostic if the upstream format changes.
+$apiError = null;
+$errorKey = null;
+foreach (['Error code', 'error_code', 'error', 'message', 'Error', 'Message'] as $key) {
+    if (array_key_exists($key, $data) && is_scalar($data[$key])) {
+        $apiError = trim((string)$data[$key]);
+        $errorKey = $key;
+        break;
+    }
 }
 
-echo json_encode(['ok'=>true,'data'=>$data], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($status >= 400 || $apiError !== null) {
+    fail_response($status >= 400 ? $status : 502, $apiError !== '' ? $apiError : 'API mengembalikan error.', [
+        'http_status' => $status,
+        'upstream_error_key' => $errorKey,
+    ]);
+}
+
+echo json_encode(['ok' => true, 'data' => $data], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
