@@ -1,5 +1,5 @@
 <?php
-// Server-side proxy: keeps the API token off the browser.
+// Server-side proxy. The API token stays on the server and is never sent to the browser.
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
@@ -9,10 +9,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$configFile = __DIR__ . '/api-config.php';
+// Recommended cPanel location: /home/gwpe7134/api-config.php
+$configFile = dirname(__DIR__) . '/api-config.php';
 if (!is_file($configFile)) {
     http_response_code(503);
-    echo json_encode(['ok'=>false,'error'=>'API belum dikonfigurasi. Buat api-config.php di cPanel.']);
+    echo json_encode(['ok'=>false,'error'=>'API belum dikonfigurasi. Buat /home/gwpe7134/api-config.php di cPanel.']);
     exit;
 }
 
@@ -25,7 +26,7 @@ $type = (string)($config['type'] ?? 'json');
 
 if ($token === '' || $token === 'PASTE_YOUR_API_TOKEN_HERE') {
     http_response_code(503);
-    echo json_encode(['ok'=>false,'error'=>'API token belum diisi di api-config.php.']);
+    echo json_encode(['ok'=>false,'error'=>'API token belum diisi di /home/gwpe7134/api-config.php.']);
     exit;
 }
 
@@ -39,7 +40,6 @@ if ($query === '') {
     exit;
 }
 
-// Conservative server-side bounds. Only process requests the logged-in application sends.
 $limit = max(100, min(10000, $limit));
 if (mb_strlen($query) > 500) {
     http_response_code(400);
@@ -88,5 +88,4 @@ if ($status >= 400 || isset($data['Error code'])) {
     exit;
 }
 
-// Return only the API result; the token is never returned to the client.
 echo json_encode(['ok'=>true,'data'=>$data], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
