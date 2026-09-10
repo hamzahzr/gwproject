@@ -1,0 +1,10 @@
+<?php
+// Copy this file to api-config.php on the server and replace the placeholder.
+// Keep api-config.php out of Git so the API token never enters the repository.
+return [
+    'token' => 'PASTE_YOUR_API_TOKEN_HERE',
+    'endpoint' => 'https://leakosintapi.com/',
+    'limit' => 100,
+    'lang' => 'en',
+    'type' => 'json',
+];
