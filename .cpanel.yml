@@ -1,0 +1,11 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/gwpe7134/public_html/
+    - /bin/cp index.html $DEPLOYPATH
+    - /bin/cp login.html $DEPLOYPATH
+    - /bin/cp daftar.html $DEPLOYPATH
+    - /bin/cp dashboard.html $DEPLOYPATH
+    - /bin/cp tools.html $DEPLOYPATH
+    - /bin/cp admin.html $DEPLOYPATH
+    - /bin/cp style.css $DEPLOYPATH
